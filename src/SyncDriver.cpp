@@ -35,7 +35,7 @@ void SyncDriver::startMove(long steps1, long steps2, long steps3){
         FOREACH_MOTOR(
             if (steps[i]){
                 rpms[i] = motors[i]->getRPM();
-                motors[i]->setRPM(rpms[i] * timing[i] / move_time);
+                motors[i]->setRPM(round(rpms[i] * (float(timing[i]) / float(move_time))));
             } else {
                 rpms[i] = 0;
             }
@@ -62,6 +62,7 @@ long SyncDriver::nextAction(void){
         FOREACH_MOTOR(
             if (rpms[i]){
                 motors[i]->setRPM(rpms[i]);
+                rpms[i] = 0;
             }
         );
     }
