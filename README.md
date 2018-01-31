@@ -1,5 +1,9 @@
 StepperDriver
 =============
+__***** WARNING *****__
+
+__Interfaces to SyncDriver are under heavy change. No guarantee to keep this structure until release__
+
 
 A4988, DRV8825, DRV8834, DRV8880 and generic two-pin stepper motor driver library.
 Features:

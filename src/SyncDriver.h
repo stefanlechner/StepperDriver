@@ -8,7 +8,7 @@
  */
 #ifndef SYNC_DRIVER_H
 #define SYNC_DRIVER_H
-#include <Arduino.h>
+#include "Arduino.h"
 #include "MultiDriver.h"
 
 /*
@@ -41,5 +41,9 @@ public:
 
     void startMove(long steps1, long steps2, long steps3=0) override;
     long nextAction(void) override;
+
+    void setRPM(short rpm);
+
+    short preferredRPM;
 };
 #endif // SYNC_DRIVER_H

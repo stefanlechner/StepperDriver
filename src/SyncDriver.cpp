@@ -9,62 +9,59 @@
  */
 #include "SyncDriver.h"
 
+
 #define FOREACH_MOTOR(action) for (short i=count-1; i >= 0; i--){action;}
 
 /*
  * Initialize motor parameters
  */
-void SyncDriver::startMove(long steps1, long steps2, long steps3){
+void SyncDriver::startMove(long steps1, long steps2, long steps3) {
     long steps[3] = {steps1, steps2, steps3};
+    long times[3] = {0,0,0};
+    short gaps[3] = {0,0,0};
     long timing[MAX_MOTORS];
     /*
      * find which motor would take the longest to finish,
      */
     long move_time = 0;
-    FOREACH_MOTOR(
+    for (short i=count-1;i>=0;i--) {
+        rpms[i] = motors[i]->getRPM();
+        motors[i]->setRPM(preferredRPM);
         long m = motors[i]->getTimeForMove(abs(steps[i]));
         timing[i] = m;
-        if (m > move_time){
+        if (m > move_time) {
             move_time = m;
         }
-    );
-    /*
-     * Stretch timing for all others by adjusting rpm proportionally
-     */
-    if (move_time){
-        FOREACH_MOTOR(
-            if (steps[i]){
-                rpms[i] = motors[i]->getRPM();
-                motors[i]->setRPM(round(rpms[i] * (float(timing[i]) / float(move_time))));
-            } else {
-                rpms[i] = 0;
-            }
-        );
-    }
+    };
+
     /*
      * Initialize state for all active motors
      */
-    FOREACH_MOTOR(
-        if (steps[i]){
-            motors[i]->startMove(steps[i]);
+    for (short i=count-1;i>=0;i--) {
+        if (steps[i]) {
+            motors[i]->startMove(steps[i], move_time);
         };
         event_timers[i] = 0;
-    );
+    };
     ready = false;
 }
 
-long SyncDriver::nextAction(void){
+long SyncDriver::nextAction(void) {
     long next_event = MultiDriver::nextAction();
-    if (!next_event){
+    if (!next_event) {
         /*
          * Restore original rpm settings
          */
         FOREACH_MOTOR(
-            if (rpms[i]){
-                motors[i]->setRPM(rpms[i]);
-                rpms[i] = 0;
-            }
+                if (rpms[i]) {
+                    motors[i]->setRPM(rpms[i]);
+                    rpms[i] = 0;
+                }
         );
     }
     return next_event;
+}
+
+void SyncDriver::setRPM(short rpm) {
+    preferredRPM = rpm;
 }

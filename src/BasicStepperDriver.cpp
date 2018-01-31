@@ -12,6 +12,7 @@
  * - Atmel AVR446: Linear speed control of stepper motor, 2006
  */
 #include "BasicStepperDriver.h"
+#include "../../includes/Serial.h"
 
 /*
  * Basic connection: only DIR, STEP are connected.
@@ -28,7 +29,7 @@ BasicStepperDriver::BasicStepperDriver(short steps, short dir_pin, short step_pi
 /*
  * Initialize pins, calculate timings etc
  */
-void BasicStepperDriver::begin(short rpm, short microsteps){
+void BasicStepperDriver::begin(unsigned short rpm, short microsteps){
     pinMode(dir_pin, OUTPUT);
     digitalWrite(dir_pin, HIGH);
 
@@ -49,7 +50,7 @@ void BasicStepperDriver::begin(short rpm, short microsteps){
 /*
  * Set target motor RPM (1-200 is a reasonable range)
  */
-void BasicStepperDriver::setRPM(short rpm){
+void BasicStepperDriver::setRPM(unsigned short rpm){
     if (this->rpm == 0){        // begin() has not been called (old 1.0 code)
         begin(rpm, microsteps);
     }
@@ -104,12 +105,52 @@ void BasicStepperDriver::rotate(long deg){
  */
 void BasicStepperDriver::rotate(double deg){
     move(calcStepsForRotation(deg));
-}
+};
 
 /*
  * Set up a new move or alter an active move (calculate and save the parameters)
  */
+void BasicStepperDriver::startMove(long steps, unsigned long time){
+   if (time) {
+       calcPulseByTime(steps, time);
+   } else {
+     pulseCorr = 0;
+     gap = 0;
+     stepCorrection = 0;
+   }
+   intStartMove(steps);
+}
+
+unsigned long BasicStepperDriver::calcPulseByTime(long steps, unsigned long time) {
+    long absSteps = abs(steps);
+    rpm = 60 * 1000000L * absSteps / time / motor_steps / microsteps;
+    unsigned long pulse = STEP_PULSE(rpm, motor_steps, microsteps);
+
+    gap = absSteps * pulse - time;
+    pulseCorr = gap / absSteps;
+    gap = gap % absSteps;
+    int sc_high = (gap * 100 / absSteps + 5) / 10;
+    int sc_low = (gap * 10 / absSteps) ;
+    if((gap - (absSteps * sc_high)) > (gap - (absSteps * sc_low))){
+           stepCorrection = sc_low;
+       } else {
+           stepCorrection = sc_high;
+       }
+    gap = gap - (absSteps * stepCorrection) / 10;
+    return pulse -pulseCorr;
+}
+
+unsigned long BasicStepperDriver::calcPulseByRPM() {
+    return STEP_PULSE(rpm, motor_steps, microsteps);
+}
+/*
+ * Set up a new move or alter an active move (calculate and save the parameters)
+ */
 void BasicStepperDriver::startMove(long steps){
+  startMove(steps,0);
+}
+
+void BasicStepperDriver::intStartMove(long steps){
     long speed;
     if (steps_remaining){
         alterMove(steps);
@@ -139,7 +180,7 @@ void BasicStepperDriver::startMove(long steps){
     
         case CONSTANT_SPEED:
         default:
-            step_pulse = STEP_PULSE(rpm, motor_steps, microsteps);
+            step_pulse = STEP_PULSE(rpm, motor_steps, microsteps)-pulseCorr;
             steps_to_cruise = 0;
             steps_to_brake = 0;
         }
@@ -204,7 +245,7 @@ long BasicStepperDriver::getTimeForMove(long steps){
             break;
         case CONSTANT_SPEED:
         default:
-            t = steps * STEP_PULSE(rpm, motor_steps, microsteps);
+            t = steps * (STEP_PULSE(rpm, motor_steps, microsteps)-pulseCorr);
     }
     return t;
 }
@@ -273,6 +314,9 @@ long BasicStepperDriver::nextAction(void){
             delayMicros(step_high_min-m);
             m = step_high_min;
         };
+        if (!(steps_remaining % 10)) {
+          m += stepCorrection;
+        }
         digitalWrite(step_pin, LOW);
         // account for calcStepPulse() execution time; sets ceiling for max rpm on slower MCUs
         last_action_end = micros();
@@ -318,4 +362,12 @@ void BasicStepperDriver::disable(void){
 
 short BasicStepperDriver::getMaxMicrostep(){
     return BasicStepperDriver::MAX_MICROSTEP;
+}
+
+long BasicStepperDriver::getStep_count() const {
+    return step_count;
+}
+
+long BasicStepperDriver::getSteps_remaining() const {
+    return steps_remaining;
 }

@@ -9,7 +9,7 @@
  */
 #ifndef STEPPER_DRIVER_BASE_H
 #define STEPPER_DRIVER_BASE_H
-#include <Arduino.h>
+#include "Arduino.h"
 
 // used internally by the library to mark unconnected pins
 #define PIN_UNCONNECTED -1
@@ -79,8 +79,10 @@ protected:
     // tWAKE wakeup time, nSLEEP inactive to STEP (us)
     static const int wakeup_time = 0;
 
-    short rpm = 0;
-
+    unsigned short rpm = 0;
+    long gap = 0;
+    int pulseCorr = 0;
+    short stepCorrection = 0;
     /*
      * Movement state
      */
@@ -103,6 +105,7 @@ protected:
 private:
     // microstep range (1, 16, 32 etc)
     static const short MAX_MICROSTEP = 128;
+    void intStartMove(long steps);
 
 public:
     /*
@@ -113,7 +116,7 @@ public:
     /*
      * Initialize pins, calculate timings etc
      */
-    void begin(short rpm=60, short microsteps=1);
+    void begin(unsigned short rpm=60, short microsteps=1);
     /*
      * Set current microstep level, 1=full speed, 32=fine microstepping
      * Returns new level or previous level if value out of range
@@ -125,15 +128,23 @@ public:
     short getSteps(void){
         return motor_steps;
     }
+
+    short getStepCorrection(){
+        return stepCorrection;
+    }
     /*
      * Set target motor RPM (1-200 is a reasonable range)
      */
-    void setRPM(short rpm);
-    short getRPM(void){
+    void setRPM(unsigned short rpm);
+    unsigned short getRPM(void){
         return rpm;
     };
-    short getCurrentRPM(void){
+    unsigned short getCurrentRPM(void){
         return (short)(60*1000000L / step_pulse / microsteps / motor_steps);
+    }
+    
+    long getGap(){
+      return gap;
     }
     /*
      * Set speed profile - CONSTANT_SPEED, LINEAR_SPEED (accelerated)
@@ -181,6 +192,7 @@ public:
      * Initiate a move over known distance (calculate and save the parameters)
      * Pick just one based on move type and distance type.
      */
+    void startMove(long steps, unsigned long time);
     void startMove(long steps);
     inline void startRotate(int deg){ 
         startRotate((long)deg);
@@ -218,5 +230,13 @@ public:
     long calcStepsForRotation(double deg){
         return deg * motor_steps * microsteps / 360;
     }
+
+    long getStep_count() const;
+
+    long getSteps_remaining() const;
+
+    unsigned long calcPulseByTime(long steps, unsigned long time);
+
+    unsigned long calcPulseByRPM();
 };
 #endif // STEPPER_DRIVER_BASE_H

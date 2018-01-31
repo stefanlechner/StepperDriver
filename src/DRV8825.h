@@ -9,7 +9,7 @@
  */
 #ifndef DRV8825_H
 #define DRV8825_H
-#include <Arduino.h>
+#include "Arduino.h"
 #include "A4988.h"
 
 class DRV8825 : public A4988 {
