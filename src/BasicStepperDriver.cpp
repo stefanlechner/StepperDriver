@@ -12,7 +12,6 @@
  * - Atmel AVR446: Linear speed control of stepper motor, 2006
  */
 #include "BasicStepperDriver.h"
-#include "../../includes/Serial.h"
 
 /*
  * Basic connection: only DIR, STEP are connected.
